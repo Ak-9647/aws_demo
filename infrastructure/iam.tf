@@ -1,3 +1,6 @@
+# Data source for current AWS account
+data "aws_caller_identity" "current" {}
+
 # IAM role for AgentCore Runtime
 resource "aws_iam_role" "agentcore_runtime" {
   name = "${var.project_name}-agentcore-runtime-role"
@@ -9,10 +12,7 @@ resource "aws_iam_role" "agentcore_runtime" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          Service = [
-            "bedrock.amazonaws.com",
-            "ecs-tasks.amazonaws.com"
-          ]
+          Service = "bedrock.amazonaws.com"
         }
       }
     ]
@@ -63,7 +63,14 @@ resource "aws_iam_policy" "bedrock_access" {
           "bedrock:InvokeModel",
           "bedrock:InvokeModelWithResponseStream",
           "bedrock:GetFoundationModel",
-          "bedrock:ListFoundationModels"
+          "bedrock:ListFoundationModels",
+          "bedrock:GetAgent",
+          "bedrock:GetAgentVersion",
+          "bedrock:InvokeAgent",
+          "bedrock:CreateAgentActionGroup",
+          "bedrock:GetAgentActionGroup",
+          "bedrock:UpdateAgentActionGroup",
+          "bedrock:DeleteAgentActionGroup"
         ]
         Resource = "*"
       }
@@ -94,6 +101,38 @@ resource "aws_iam_policy" "cloudwatch_logs" {
   })
 }
 
+# IAM policy for AgentCore runtime
+resource "aws_iam_policy" "agentcore_runtime" {
+  name        = "${var.project_name}-agentcore-runtime-policy"
+  description = "Policy for AgentCore runtime operations"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "bedrock-agent-runtime:InvokeAgent",
+          "bedrock-agent-runtime:Retrieve",
+          "bedrock-agent-runtime:RetrieveAndGenerate",
+          "bedrock-runtime:InvokeModel",
+          "bedrock-runtime:InvokeModelWithResponseStream",
+          "bedrock:InvokeModel",
+          "bedrock:InvokeModelWithResponseStream"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sts:AssumeRole"
+        ]
+        Resource = "arn:aws:iam::*:role/*bedrock*"
+      }
+    ]
+  })
+}
+
 # Attach policies to the role
 resource "aws_iam_role_policy_attachment" "s3_access" {
   role       = aws_iam_role.agentcore_runtime.name
@@ -108,6 +147,11 @@ resource "aws_iam_role_policy_attachment" "bedrock_access" {
 resource "aws_iam_role_policy_attachment" "cloudwatch_logs" {
   role       = aws_iam_role.agentcore_runtime.name
   policy_arn = aws_iam_policy.cloudwatch_logs.arn
+}
+
+resource "aws_iam_role_policy_attachment" "agentcore_runtime" {
+  role       = aws_iam_role.agentcore_runtime.name
+  policy_arn = aws_iam_policy.agentcore_runtime.arn
 }
 
 # ECS task execution role
