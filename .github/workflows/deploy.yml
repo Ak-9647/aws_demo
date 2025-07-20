@@ -1,0 +1,150 @@
+name: Deploy Analytics Agent
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'agent/**'
+      - 'gui/**'
+      - 'infrastructure/**'
+  pull_request:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-west-2
+  ECR_REGISTRY: 280383026847.dkr.ecr.us-west-2.amazonaws.com
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.13'
+    
+    - name: Install dependencies
+      run: |
+        cd agent
+        pip install -r requirements.txt
+    
+    - name: Run basic tests
+      run: |
+        cd agent
+        python -c "import analytics_engine; print('Analytics engine imports successfully')"
+        python -c "from analytics_engine import AnalyticsEngine; engine = AnalyticsEngine(); print('Analytics engine initializes successfully')"
+
+  build-agent:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Build and push agent image
+      run: |
+        cd agent
+        
+        # Generate version tag
+        VERSION=$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::8}
+        
+        # Build image
+        docker build -t analytics-agent .
+        
+        # Tag images
+        docker tag analytics-agent:latest $ECR_REGISTRY/production-analytics-agent-agent:latest
+        docker tag analytics-agent:latest $ECR_REGISTRY/production-analytics-agent-agent:$VERSION
+        
+        # Push images
+        docker push $ECR_REGISTRY/production-analytics-agent-agent:latest
+        docker push $ECR_REGISTRY/production-analytics-agent-agent:$VERSION
+        
+        echo "Pushed agent image with version: $VERSION"
+
+  build-gui:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v2
+    
+    - name: Build and push GUI image
+      run: |
+        cd gui
+        
+        # Generate version tag
+        VERSION=$(date +%Y%m%d-%H%M%S)-${GITHUB_SHA::8}
+        
+        # Build image
+        docker build -t analytics-gui .
+        
+        # Tag images
+        docker tag analytics-gui:latest $ECR_REGISTRY/production-analytics-agent-gui:latest
+        docker tag analytics-gui:latest $ECR_REGISTRY/production-analytics-agent-gui:$VERSION
+        
+        # Push images
+        docker push $ECR_REGISTRY/production-analytics-agent-gui:latest
+        docker push $ECR_REGISTRY/production-analytics-agent-gui:$VERSION
+        
+        echo "Pushed GUI image with version: $VERSION"
+
+  deploy-infrastructure:
+    needs: [build-agent, build-gui]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.0
+    
+    - name: Terraform Init
+      run: |
+        cd infrastructure
+        terraform init
+    
+    - name: Terraform Plan
+      run: |
+        cd infrastructure
+        terraform plan
+    
+    - name: Terraform Apply
+      run: |
+        cd infrastructure
+        terraform apply -auto-approve

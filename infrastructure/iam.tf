@@ -9,11 +9,15 @@ resource "aws_iam_role" "agentcore_runtime" {
     Version = "2012-10-17"
     Statement = [
       {
-        Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          Service = "bedrock.amazonaws.com"
+          Service = [
+            "bedrock.amazonaws.com",
+            "lambda.amazonaws.com",
+            "ecs-tasks.amazonaws.com"
+          ]
         }
+        Action = "sts:AssumeRole"
       }
     ]
   })
@@ -78,6 +82,57 @@ resource "aws_iam_policy" "bedrock_access" {
   })
 }
 
+# IAM policy for DynamoDB access
+resource "aws_iam_policy" "dynamodb_access" {
+  name        = "${var.project_name}-dynamodb-access-policy"
+  description = "Policy for DynamoDB access"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "dynamodb:Query",
+          "dynamodb:Scan",
+          "dynamodb:GetItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+          "dynamodb:DeleteItem",
+          "dynamodb:BatchGetItem",
+          "dynamodb:BatchWriteItem"
+        ]
+        Resource = [
+          "arn:aws:dynamodb:*:*:table/${var.project_name}-conversation-history",
+          "arn:aws:dynamodb:*:*:table/${var.project_name}-conversation-history/index/*",
+          "arn:aws:dynamodb:*:*:table/${var.project_name}-user-preferences"
+        ]
+      }
+    ]
+  })
+}
+
+# IAM policy for ElastiCache access
+resource "aws_iam_policy" "elasticache_access" {
+  name        = "${var.project_name}-elasticache-access-policy"
+  description = "Policy for ElastiCache access"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "elasticache:DescribeCacheClusters",
+          "elasticache:DescribeReplicationGroups",
+          "elasticache:DescribeCacheNodes"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # IAM policy for CloudWatch logs
 resource "aws_iam_policy" "cloudwatch_logs" {
   name        = "${var.project_name}-cloudwatch-logs-policy"
@@ -120,7 +175,11 @@ resource "aws_iam_policy" "agentcore_runtime" {
           "bedrock:InvokeModel",
           "bedrock:InvokeModelWithResponseStream"
         ]
-        Resource = "*"
+        Resource = [
+          "*",
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:agent/hosted_agent_jqgjl",
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:agent/hosted_agent_jqgjl/*"
+        ]
       },
       {
         Effect = "Allow"
@@ -128,6 +187,18 @@ resource "aws_iam_policy" "agentcore_runtime" {
           "sts:AssumeRole"
         ]
         Resource = "arn:aws:iam::*:role/*bedrock*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "bedrock-agent:GetAgent",
+          "bedrock-agent:GetAgentVersion",
+          "bedrock-agent:InvokeAgent"
+        ]
+        Resource = [
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:agent/hosted_agent_jqgjl",
+          "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:agent/hosted_agent_jqgjl/*"
+        ]
       }
     ]
   })
@@ -181,4 +252,14 @@ resource "aws_iam_role" "ecs_task_execution" {
 resource "aws_iam_role_policy_attachment" "ecs_task_execution" {
   role       = aws_iam_role.ecs_task_execution.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb_access" {
+  role       = aws_iam_role.agentcore_runtime.name
+  policy_arn = aws_iam_policy.dynamodb_access.arn
+}
+
+resource "aws_iam_role_policy_attachment" "elasticache_access" {
+  role       = aws_iam_role.agentcore_runtime.name
+  policy_arn = aws_iam_policy.elasticache_access.arn
 }
