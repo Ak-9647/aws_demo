@@ -1,0 +1,344 @@
+apiVersion: bedrock/v1
+kind: Gateway
+metadata:
+  name: production-analytics-gateway
+  namespace: production
+  labels:
+    environment: production
+    service: analytics-agent
+    version: v4.1
+spec:
+  gateways:
+    - name: rest-gateway
+      type: REST
+      configuration:
+        endpoints:
+          - name: market-data-api
+            url: https://api.marketdata.com/v1
+            authentication:
+              type: API_KEY
+              secretArn: arn:aws:secretsmanager:us-west-2:ACCOUNT:secret:production-analytics-market-api-key
+            rateLimiting:
+              requestsPerSecond: 10
+              burstCapacity: 50
+            timeout: 30s
+            retryPolicy:
+              maxRetries: 3
+              backoffMultiplier: 2
+              retryableStatusCodes: [500, 502, 503, 504]
+            healthCheck:
+              enabled: true
+              path: /health
+              intervalSeconds: 60
+          
+          - name: weather-api
+            url: https://api.weather.com/v1
+            authentication:
+              type: BEARER_TOKEN
+              secretArn: arn:aws:secretsmanager:us-west-2:ACCOUNT:secret:production-analytics-weather-token
+            rateLimiting:
+              requestsPerSecond: 5
+              burstCapacity: 20
+            timeout: 30s
+            retryPolicy:
+              maxRetries: 2
+              backoffMultiplier: 1.5
+            healthCheck:
+              enabled: true
+              path: /status
+              intervalSeconds: 120
+          
+          - name: financial-data-api
+            url: https://api.financial.com/v2
+            authentication:
+              type: API_KEY
+              secretArn: arn:aws:secretsmanager:us-west-2:ACCOUNT:secret:production-analytics-financial-api-key
+            rateLimiting:
+              requestsPerSecond: 15
+              burstCapacity: 100
+            timeout: 45s
+            retryPolicy:
+              maxRetries: 3
+              backoffMultiplier: 2
+    
+    - name: database-gateway
+      type: DATABASE
+      configuration:
+        connections:
+          - name: analytics-postgres
+            type: POSTGRESQL
+            connectionString:
+              secretArn: arn:aws:secretsmanager:us-west-2:ACCOUNT:secret:production-analytics-postgres-connection
+            pooling:
+              minConnections: 2
+              maxConnections: 20
+              idleTimeout: 300s
+              maxLifetime: 3600s
+            ssl:
+              enabled: true
+              mode: require
+            healthCheck:
+              enabled: true
+              query: "SELECT 1"
+              intervalSeconds: 30
+            queryTimeout: 60s
+          
+          - name: data-warehouse
+            type: REDSHIFT
+            connectionString:
+              secretArn: arn:aws:secretsmanager:us-west-2:ACCOUNT:secret:production-analytics-redshift-connection
+            pooling:
+              minConnections: 1
+              maxConnections: 10
+              idleTimeout: 600s
+              maxLifetime: 7200s
+            ssl:
+              enabled: true
+              mode: require
+            healthCheck:
+              enabled: true
+              query: "SELECT 1"
+              intervalSeconds: 60
+            queryTimeout: 120s
+          
+          - name: analytics-mysql
+            type: MYSQL
+            connectionString:
+              secretArn: arn:aws:secretsmanager:us-west-2:ACCOUNT:secret:production-analytics-mysql-connection
+            pooling:
+              minConnections: 1
+              maxConnections: 15
+              idleTimeout: 300s
+            ssl:
+              enabled: true
+              mode: required
+            healthCheck:
+              enabled: true
+              query: "SELECT 1"
+              intervalSeconds: 45
+    
+    - name: s3-gateway
+      type: S3
+      configuration:
+        buckets:
+          - name: analytics-data-lake
+            bucket: production-analytics-data-lake
+            region: us-west-2
+            permissions:
+              - READ
+              - WRITE
+            pathPrefix: /analytics/
+            encryption:
+              enabled: true
+              kmsKeyId: alias/production-analytics-s3-key
+            versioning:
+              enabled: true
+            lifecycle:
+              enabled: true
+              rules:
+                - name: archive-old-data
+                  status: Enabled
+                  transitions:
+                    - days: 30
+                      storageClass: STANDARD_IA
+                    - days: 90
+                      storageClass: GLACIER
+          
+          - name: processed-results
+            bucket: production-analytics-results
+            region: us-west-2
+            permissions:
+              - READ
+              - WRITE
+              - DELETE
+            pathPrefix: /results/
+            encryption:
+              enabled: true
+              kmsKeyId: alias/production-analytics-s3-key
+            versioning:
+              enabled: true
+            lifecycle:
+              enabled: true
+              rules:
+                - name: cleanup-old-results
+                  status: Enabled
+                  expiration:
+                    days: 365
+          
+          - name: backup-storage
+            bucket: production-analytics-backups
+            region: us-west-2
+            permissions:
+              - READ
+              - WRITE
+            pathPrefix: /backups/
+            encryption:
+              enabled: true
+              kmsKeyId: alias/production-analytics-s3-key
+            versioning:
+              enabled: true
+    
+    - name: custom-gateway
+      type: CUSTOM
+      configuration:
+        endpoints:
+          - name: elasticsearch-cluster
+            url: https://analytics-es.us-west-2.es.amazonaws.com
+            authentication:
+              type: AWS_SIGNATURE_V4
+              service: es
+            timeout: 30s
+            retryPolicy:
+              maxRetries: 3
+              backoffMultiplier: 2
+          
+          - name: redis-cache
+            url: redis://production-analytics-redis.cache.amazonaws.com:6379
+            authentication:
+              type: AUTH_TOKEN
+              secretArn: arn:aws:secretsmanager:us-west-2:ACCOUNT:secret:production-analytics-redis-auth
+            timeout: 10s
+            retryPolicy:
+              maxRetries: 2
+              backoffMultiplier: 1.5
+  
+  security:
+    encryption:
+      inTransit: true
+      atRest: true
+      algorithm: AES-256
+    authentication:
+      required: true
+      methods:
+        - API_KEY
+        - BEARER_TOKEN
+        - AWS_SIGNATURE_V4
+        - BASIC_AUTH
+    authorization:
+      rbac: true
+      policies:
+        - name: analytics-read-only
+          effect: Allow
+          actions:
+            - gateway:read
+            - gateway:query
+          resources:
+            - "arn:aws:gateway:*:*:connection/analytics-*"
+        - name: analytics-full-access
+          effect: Allow
+          actions:
+            - gateway:*
+          resources:
+            - "arn:aws:gateway:*:*:connection/*"
+    networkSecurity:
+      vpcEndpoint:
+        enabled: true
+        vpcId: vpc-12345678
+        subnetIds:
+          - subnet-12345678
+          - subnet-87654321
+      securityGroups:
+        - sg-gateway-access
+        - sg-database-access
+      allowedCIDRs:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+  
+  monitoring:
+    cloudWatch:
+      enabled: true
+      logGroup: /aws/agentcore/gateway
+      logLevel: INFO
+      metricsNamespace: AgentCore/Gateway
+      customMetrics:
+        - name: ConnectionPoolUtilization
+          unit: Percent
+        - name: QueryExecutionTime
+          unit: Milliseconds
+        - name: APICallLatency
+          unit: Milliseconds
+        - name: ErrorRate
+          unit: Percent
+    
+    alerting:
+      enabled: true
+      snsTopicArn: arn:aws:sns:us-west-2:ACCOUNT:production-analytics-alerts
+      thresholds:
+        errorRate: 5%
+        latency: 5000ms
+        connectionFailures: 3
+        poolUtilization: 80%
+      alerts:
+        - name: HighErrorRate
+          metric: ErrorRate
+          threshold: 5
+          comparisonOperator: GreaterThanThreshold
+          evaluationPeriods: 2
+          period: 300
+        - name: HighLatency
+          metric: APICallLatency
+          threshold: 5000
+          comparisonOperator: GreaterThanThreshold
+          evaluationPeriods: 3
+          period: 300
+        - name: ConnectionPoolExhaustion
+          metric: ConnectionPoolUtilization
+          threshold: 90
+          comparisonOperator: GreaterThanThreshold
+          evaluationPeriods: 1
+          period: 60
+    
+    tracing:
+      enabled: true
+      xrayTracing: true
+      samplingRate: 0.1
+      customTags:
+        service: production-analytics-agent
+        version: v4.1
+        environment: production
+  
+  performance:
+    caching:
+      enabled: true
+      ttl: 300s
+      maxSize: 1000
+      evictionPolicy: LRU
+    
+    connectionPooling:
+      enabled: true
+      globalMaxConnections: 100
+      perEndpointMaxConnections: 20
+    
+    rateLimiting:
+      enabled: true
+      globalRequestsPerSecond: 100
+      burstCapacity: 200
+    
+    compression:
+      enabled: true
+      algorithm: gzip
+      minSize: 1024
+  
+  resilience:
+    circuitBreaker:
+      enabled: true
+      failureThreshold: 5
+      recoveryTimeout: 30s
+      halfOpenMaxCalls: 3
+    
+    bulkhead:
+      enabled: true
+      maxConcurrentRequests: 50
+      maxQueueSize: 100
+    
+    timeout:
+      default: 30s
+      database: 60s
+      api: 30s
+      s3: 45s
+    
+    retry:
+      enabled: true
+      maxAttempts: 3
+      backoffMultiplier: 2
+      jitter: true

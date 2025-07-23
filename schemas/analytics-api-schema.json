@@ -1,0 +1,383 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Analytics API Gateway",
+    "description": "External analytics API integration for the Production Analytics Agent",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://api.analytics-external.example.com",
+      "description": "External Analytics API Server"
+    }
+  ],
+  "paths": {
+    "/analyze": {
+      "post": {
+        "summary": "Analyze data using external analytics service",
+        "description": "Submit data for advanced analytics processing",
+        "operationId": "analyzeData",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnalysisRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Analysis completed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalysisResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid input data"
+          },
+          "401": {
+            "description": "Unauthorized - invalid API key"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/datasets": {
+      "get": {
+        "summary": "List available datasets",
+        "description": "Retrieve list of datasets available for analysis",
+        "operationId": "listDatasets",
+        "responses": {
+          "200": {
+            "description": "List of available datasets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatasetList"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/visualizations": {
+      "post": {
+        "summary": "Generate visualizations",
+        "description": "Create charts and graphs from analysis results",
+        "operationId": "createVisualization",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VisualizationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Visualization created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VisualizationResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Health check endpoint",
+        "description": "Check the health status of the analytics API",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "healthy"
+                    },
+                    "timestamp": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AnalysisRequest": {
+        "type": "object",
+        "required": ["data", "analysis_type"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "description": "Data to be analyzed",
+            "items": {
+              "type": "object"
+            }
+          },
+          "analysis_type": {
+            "type": "string",
+            "enum": ["statistical", "predictive", "anomaly_detection", "clustering"],
+            "description": "Type of analysis to perform"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Additional parameters for the analysis",
+            "properties": {
+              "confidence_level": {
+                "type": "number",
+                "minimum": 0.8,
+                "maximum": 0.99,
+                "default": 0.95
+              },
+              "time_period": {
+                "type": "string",
+                "description": "Time period for analysis (e.g., '30d', '1y')"
+              }
+            }
+          }
+        }
+      },
+      "AnalysisResponse": {
+        "type": "object",
+        "properties": {
+          "analysis_id": {
+            "type": "string",
+            "description": "Unique identifier for the analysis"
+          },
+          "results": {
+            "type": "object",
+            "description": "Analysis results",
+            "properties": {
+              "summary": {
+                "type": "string",
+                "description": "Summary of analysis findings"
+              },
+              "metrics": {
+                "type": "object",
+                "description": "Key metrics from the analysis"
+              },
+              "insights": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Key insights discovered"
+              }
+            }
+          },
+          "processing_time": {
+            "type": "number",
+            "description": "Time taken to process the analysis in seconds"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["completed", "failed", "partial"],
+            "description": "Status of the analysis"
+          }
+        }
+      },
+      "DatasetList": {
+        "type": "object",
+        "properties": {
+          "datasets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Dataset"
+            }
+          },
+          "total_count": {
+            "type": "integer",
+            "description": "Total number of available datasets"
+          }
+        }
+      },
+      "Dataset": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique dataset identifier"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable dataset name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Dataset description"
+          },
+          "size": {
+            "type": "integer",
+            "description": "Number of records in the dataset"
+          },
+          "last_updated": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp"
+          },
+          "schema": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column_name": {
+                  "type": "string"
+                },
+                "data_type": {
+                  "type": "string"
+                },
+                "nullable": {
+                  "type": "boolean"
+                }
+              }
+            }
+          }
+        }
+      },
+      "VisualizationRequest": {
+        "type": "object",
+        "required": ["data", "chart_type"],
+        "properties": {
+          "data": {
+            "type": "array",
+            "description": "Data for visualization",
+            "items": {
+              "type": "object"
+            }
+          },
+          "chart_type": {
+            "type": "string",
+            "enum": ["bar", "line", "pie", "scatter", "heatmap", "histogram"],
+            "description": "Type of chart to generate"
+          },
+          "title": {
+            "type": "string",
+            "description": "Chart title"
+          },
+          "x_axis": {
+            "type": "string",
+            "description": "X-axis column name"
+          },
+          "y_axis": {
+            "type": "string",
+            "description": "Y-axis column name"
+          },
+          "styling": {
+            "type": "object",
+            "properties": {
+              "theme": {
+                "type": "string",
+                "enum": ["default", "dark", "minimal", "colorful"],
+                "default": "default"
+              },
+              "width": {
+                "type": "integer",
+                "default": 800
+              },
+              "height": {
+                "type": "integer",
+                "default": 600
+              }
+            }
+          }
+        }
+      },
+      "VisualizationResponse": {
+        "type": "object",
+        "properties": {
+          "visualization_id": {
+            "type": "string",
+            "description": "Unique identifier for the visualization"
+          },
+          "chart_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL to access the generated chart"
+          },
+          "chart_base64": {
+            "type": "string",
+            "description": "Base64 encoded chart image"
+          },
+          "interactive_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL for interactive version of the chart"
+          },
+          "metadata": {
+            "type": "object",
+            "properties": {
+              "format": {
+                "type": "string",
+                "enum": ["png", "svg", "pdf"]
+              },
+              "size_bytes": {
+                "type": "integer"
+              },
+              "dimensions": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "integer"
+                  },
+                  "height": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-API-Key",
+        "description": "API key for authentication"
+      }
+    }
+  }
+}

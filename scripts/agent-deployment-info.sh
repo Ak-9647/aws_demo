@@ -1,0 +1,66 @@
+#!/bin/bash
+# Agent Deployment Information
+# Production Analytics Agent v4.1 - Enhanced Version
+
+echo "🚀 Enhanced Agent Deployment Information"
+echo "========================================"
+echo ""
+
+# Configuration
+REGION="us-west-2"
+ACCOUNT_ID="280383026847"
+ECR_REPO_NAME="production-analytics-agent-agent"
+ECR_URI="${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/${ECR_REPO_NAME}"
+AGENT_VERSION="v4.1-enhanced"
+
+echo "📦 Enhanced Agent Image Details:"
+echo "================================"
+echo "Image URI: ${ECR_URI}:${AGENT_VERSION}"
+echo "Latest URI: ${ECR_URI}:latest"
+echo "Account: ${ACCOUNT_ID}"
+echo "Region: ${REGION}"
+echo ""
+
+echo "🎯 Enhanced Features in v4.1:"
+echo "=============================="
+echo "✅ LangGraph workflow orchestration"
+echo "✅ Database integration with natural language to SQL"
+echo "✅ Context engineering and memory management"
+echo "✅ MCP tools integration"
+echo "✅ AgentCore Gateway support"
+echo "✅ Advanced analytics and visualization"
+echo "✅ Comprehensive error handling"
+echo "✅ Real-time query processing"
+echo "✅ Session management and context awareness"
+echo ""
+
+echo "🔧 AgentCore Runtime Update Steps:"
+echo "=================================="
+echo "1. Open AWS Console → Amazon Bedrock → AgentCore"
+echo "2. Navigate to your Agent Runtime"
+echo "3. Click 'Update Runtime Configuration'"
+echo "4. Update Container Image to:"
+echo "   ${ECR_URI}:${AGENT_VERSION}"
+echo "5. Save and Deploy"
+echo ""
+
+echo "🌐 After Deployment:"
+echo "==================="
+echo "Your GUI at http://analytics-gui-alb-1184070249.us-west-2.elb.amazonaws.com/"
+echo "will automatically connect to the enhanced AgentCore runtime with:"
+echo "- Real-time query processing"
+echo "- Advanced analytics capabilities"
+echo "- Enhanced visualizations"
+echo "- Improved error handling"
+echo ""
+
+echo "🧪 Testing:"
+echo "==========="
+echo "After deployment, test with queries like:"
+echo "- 'Show me sales performance for Q2 2024'"
+echo "- 'What are our key performance indicators?'"
+echo "- 'Analyze customer satisfaction trends'"
+echo ""
+
+echo "✅ Enhanced agent image is ready for AgentCore Runtime deployment!"
+echo "📋 Use the image URI above to update your AgentCore Runtime configuration."

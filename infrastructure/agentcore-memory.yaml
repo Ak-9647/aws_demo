@@ -1,0 +1,307 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Amazon Bedrock AgentCore Memory Resources for Production Analytics Agent'
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: production-analytics-agent
+    Description: Name of the project
+  
+  Environment:
+    Type: String
+    Default: production
+    Description: Environment name
+    
+  AgentId:
+    Type: String
+    Description: The AgentCore Agent ID
+    Default: hosted_agent_jqgjl-fJiyIV95k9
+
+Resources:
+  # AgentCore Memory for Conversation History
+  ConversationMemory:
+    Type: AWS::BedrockAgent::Memory
+    Properties:
+      MemoryName: !Sub '${ProjectName}-conversation-memory'
+      Description: 'Memory for storing conversation history and context'
+      MemoryConfiguration:
+        MemoryType: 'CONVERSATION'
+        MaxTokens: 10000
+        RetentionDays: 90
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-conversation-memory'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: ConversationHistory
+
+  # AgentCore Memory for User Preferences
+  UserPreferencesMemory:
+    Type: AWS::BedrockAgent::Memory
+    Properties:
+      MemoryName: !Sub '${ProjectName}-user-preferences-memory'
+      Description: 'Memory for storing user preferences and learning patterns'
+      MemoryConfiguration:
+        MemoryType: 'USER_PREFERENCES'
+        MaxTokens: 5000
+        RetentionDays: 365
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-user-preferences-memory'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: UserPreferences
+
+  # AgentCore Memory for Session Context
+  SessionContextMemory:
+    Type: AWS::BedrockAgent::Memory
+    Properties:
+      MemoryName: !Sub '${ProjectName}-session-context-memory'
+      Description: 'Memory for storing session-specific context and state'
+      MemoryConfiguration:
+        MemoryType: 'SESSION_CONTEXT'
+        MaxTokens: 8000
+        RetentionDays: 7
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-session-context-memory'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: SessionContext
+
+  # AgentCore Memory for Analytics Context
+  AnalyticsContextMemory:
+    Type: AWS::BedrockAgent::Memory
+    Properties:
+      MemoryName: !Sub '${ProjectName}-analytics-context-memory'
+      Description: 'Memory for storing analytics query context and patterns'
+      MemoryConfiguration:
+        MemoryType: 'CUSTOM'
+        MaxTokens: 15000
+        RetentionDays: 180
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-analytics-context-memory'
+        - Key: Environment
+          Value: !Ref Environment
+        - Key: Purpose
+          Value: AnalyticsContext
+
+  # IAM Role for AgentCore Memory Access
+  AgentCoreMemoryRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${ProjectName}-agentcore-memory-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: bedrock.amazonaws.com
+            Action: sts:AssumeRole
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: AgentCoreMemoryAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:GetMemory
+                  - bedrock:PutMemory
+                  - bedrock:DeleteMemory
+                  - bedrock:ListMemories
+                  - bedrock:UpdateMemory
+                Resource: 
+                  - !GetAtt ConversationMemory.MemoryArn
+                  - !GetAtt UserPreferencesMemory.MemoryArn
+                  - !GetAtt SessionContextMemory.MemoryArn
+                  - !GetAtt AnalyticsContextMemory.MemoryArn
+              - Effect: Allow
+                Action:
+                  - bedrock:InvokeAgent
+                  - bedrock:RetrieveAndGenerate
+                Resource: !Sub 'arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:agent/${AgentId}'
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-agentcore-memory-role'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # Lambda function for AgentCore Memory management
+  MemoryManagementFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${ProjectName}-agentcore-memory-manager'
+      Runtime: python3.11
+      Handler: index.lambda_handler
+      Role: !GetAtt AgentCoreMemoryRole.Arn
+      Timeout: 300
+      Environment:
+        Variables:
+          CONVERSATION_MEMORY_ID: !Ref ConversationMemory
+          USER_PREFERENCES_MEMORY_ID: !Ref UserPreferencesMemory
+          SESSION_CONTEXT_MEMORY_ID: !Ref SessionContextMemory
+          ANALYTICS_CONTEXT_MEMORY_ID: !Ref AnalyticsContextMemory
+          AGENT_ID: !Ref AgentId
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          from datetime import datetime, timedelta
+          
+          bedrock = boto3.client('bedrock-agent')
+          
+          def lambda_handler(event, context):
+              """
+              AgentCore Memory management function
+              Handles memory operations and cleanup
+              """
+              try:
+                  operation = event.get('operation', 'health_check')
+                  
+                  if operation == 'health_check':
+                      return health_check()
+                  elif operation == 'cleanup_expired':
+                      return cleanup_expired_memories()
+                  elif operation == 'get_memory_stats':
+                      return get_memory_statistics()
+                  else:
+                      return {
+                          'statusCode': 400,
+                          'body': json.dumps({'error': f'Unknown operation: {operation}'})
+                      }
+                      
+              except Exception as e:
+                  return {
+                      'statusCode': 500,
+                      'body': json.dumps({'error': str(e)})
+                  }
+          
+          def health_check():
+              """Check health of all memory resources"""
+              memory_ids = [
+                  os.environ['CONVERSATION_MEMORY_ID'],
+                  os.environ['USER_PREFERENCES_MEMORY_ID'],
+                  os.environ['SESSION_CONTEXT_MEMORY_ID'],
+                  os.environ['ANALYTICS_CONTEXT_MEMORY_ID']
+              ]
+              
+              healthy_memories = []
+              for memory_id in memory_ids:
+                  try:
+                      response = bedrock.get_memory(memoryId=memory_id)
+                      healthy_memories.append({
+                          'memory_id': memory_id,
+                          'status': 'healthy',
+                          'name': response.get('memoryName', 'unknown')
+                      })
+                  except Exception as e:
+                      healthy_memories.append({
+                          'memory_id': memory_id,
+                          'status': 'error',
+                          'error': str(e)
+                      })
+              
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({
+                      'status': 'healthy',
+                      'memories': healthy_memories,
+                      'timestamp': datetime.now().isoformat()
+                  })
+              }
+          
+          def cleanup_expired_memories():
+              """Clean up expired memory entries"""
+              # This would implement cleanup logic based on retention policies
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({
+                      'status': 'cleanup_completed',
+                      'timestamp': datetime.now().isoformat()
+                  })
+              }
+          
+          def get_memory_statistics():
+              """Get statistics about memory usage"""
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps({
+                      'status': 'statistics_retrieved',
+                      'timestamp': datetime.now().isoformat()
+                  })
+              }
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-agentcore-memory-manager'
+        - Key: Environment
+          Value: !Ref Environment
+
+  # CloudWatch Event Rule for Memory Cleanup
+  MemoryCleanupSchedule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${ProjectName}-agentcore-memory-cleanup'
+      Description: 'Schedule for AgentCore memory cleanup'
+      ScheduleExpression: 'rate(1 day)'
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt MemoryManagementFunction.Arn
+          Id: MemoryCleanupTarget
+          Input: '{"operation": "cleanup_expired"}'
+
+  # Permission for CloudWatch Events to invoke Lambda
+  MemoryCleanupPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MemoryManagementFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt MemoryCleanupSchedule.Arn
+
+Outputs:
+  ConversationMemoryId:
+    Description: 'ID of the Conversation Memory resource'
+    Value: !Ref ConversationMemory
+    Export:
+      Name: !Sub '${ProjectName}-conversation-memory-id'
+
+  UserPreferencesMemoryId:
+    Description: 'ID of the User Preferences Memory resource'
+    Value: !Ref UserPreferencesMemory
+    Export:
+      Name: !Sub '${ProjectName}-user-preferences-memory-id'
+
+  SessionContextMemoryId:
+    Description: 'ID of the Session Context Memory resource'
+    Value: !Ref SessionContextMemory
+    Export:
+      Name: !Sub '${ProjectName}-session-context-memory-id'
+
+  AnalyticsContextMemoryId:
+    Description: 'ID of the Analytics Context Memory resource'
+    Value: !Ref AnalyticsContextMemory
+    Export:
+      Name: !Sub '${ProjectName}-analytics-context-memory-id'
+
+  MemoryManagementFunctionArn:
+    Description: 'ARN of the Memory Management Lambda function'
+    Value: !GetAtt MemoryManagementFunction.Arn
+    Export:
+      Name: !Sub '${ProjectName}-memory-management-function-arn'
+
+  AgentCoreMemoryRoleArn:
+    Description: 'ARN of the AgentCore Memory IAM Role'
+    Value: !GetAtt AgentCoreMemoryRole.Arn
+    Export:
+      Name: !Sub '${ProjectName}-agentcore-memory-role-arn'

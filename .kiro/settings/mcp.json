@@ -1,0 +1,88 @@
+{
+  "mcpServers": {
+    "aws-docs": {
+      "command": "uvx",
+      "args": ["awslabs.aws-documentation-mcp-server@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": ["search_aws_docs", "get_aws_service_info"]
+    },
+    "github": {
+      "command": "uvx", 
+      "args": ["mcp-server-github@latest"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": ""
+      },
+      "disabled": false,
+      "autoApprove": ["search_repositories", "get_file_contents"]
+    },
+    "postgres": {
+      "command": "uvx",
+      "args": ["mcp-server-postgres@latest"],
+      "env": {
+        "POSTGRES_CONNECTION_STRING": "postgresql://analytics_user:password@analytics-db.cluster-xyz.us-west-2.rds.amazonaws.com:5432/analytics"
+      },
+      "disabled": false,
+      "autoApprove": ["query_database", "get_schema", "list_tables"]
+    },
+    "web-search": {
+      "command": "uvx",
+      "args": ["mcp-server-brave-search@latest"],
+      "env": {
+        "BRAVE_API_KEY": ""
+      },
+      "disabled": false,
+      "autoApprove": ["web_search"]
+    },
+    "filesystem": {
+      "command": "uvx",
+      "args": ["mcp-server-filesystem@latest"],
+      "env": {
+        "ALLOWED_DIRECTORIES": "/tmp,/data"
+      },
+      "disabled": false,
+      "autoApprove": ["read_file", "write_file", "list_directory"]
+    },
+    "data-analysis": {
+      "command": "uvx",
+      "args": ["mcp-server-data-analysis@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "INFO",
+        "MAX_DATASET_SIZE_MB": "100"
+      },
+      "disabled": false,
+      "autoApprove": ["analyze_dataset", "generate_statistics", "detect_anomalies", "forecast_timeseries"]
+    },
+    "visualization": {
+      "command": "uvx",
+      "args": ["mcp-server-visualization@latest"],
+      "env": {
+        "FASTMCP_LOG_LEVEL": "INFO",
+        "DEFAULT_CHART_THEME": "analytics"
+      },
+      "disabled": false,
+      "autoApprove": ["create_chart", "generate_dashboard", "export_visualization"]
+    },
+    "aws-analytics": {
+      "command": "uvx",
+      "args": ["mcp-server-aws-analytics@latest"],
+      "env": {
+        "AWS_REGION": "us-west-2",
+        "FASTMCP_LOG_LEVEL": "INFO"
+      },
+      "disabled": false,
+      "autoApprove": ["query_athena", "describe_glue_tables", "list_quicksight_dashboards"]
+    },
+    "redshift": {
+      "command": "uvx",
+      "args": ["mcp-server-redshift@latest"],
+      "env": {
+        "REDSHIFT_CONNECTION_STRING": "redshift://analytics_user:password@analytics-warehouse.xyz.us-west-2.redshift.amazonaws.com:5439/analytics"
+      },
+      "disabled": false,
+      "autoApprove": ["query_redshift", "get_schema", "list_tables"]
+    }
+  }
+}

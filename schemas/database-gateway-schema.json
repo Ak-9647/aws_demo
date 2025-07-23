@@ -1,0 +1,444 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Database Gateway API",
+    "description": "Database operations gateway for PostgreSQL and Redshift connections",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://database-gateway.internal",
+      "description": "Internal Database Gateway"
+    }
+  ],
+  "paths": {
+    "/query": {
+      "post": {
+        "summary": "Execute SQL query",
+        "description": "Execute a SQL query against the configured database",
+        "operationId": "executeQuery",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QueryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Query executed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - invalid SQL query"
+          },
+          "401": {
+            "description": "Unauthorized access"
+          },
+          "500": {
+            "description": "Database error"
+          }
+        },
+        "security": [
+          {
+            "DatabaseAuth": []
+          }
+        ]
+      }
+    },
+    "/schema": {
+      "get": {
+        "summary": "Get database schema",
+        "description": "Retrieve schema information for available tables",
+        "operationId": "getSchema",
+        "parameters": [
+          {
+            "name": "table_name",
+            "in": "query",
+            "description": "Specific table name (optional)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Schema information retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SchemaResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "DatabaseAuth": []
+          }
+        ]
+      }
+    },
+    "/tables": {
+      "get": {
+        "summary": "List database tables",
+        "description": "Get list of all accessible tables",
+        "operationId": "listTables",
+        "responses": {
+          "200": {
+            "description": "List of tables retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TablesResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "DatabaseAuth": []
+          }
+        ]
+      }
+    },
+    "/explain": {
+      "post": {
+        "summary": "Explain query execution plan",
+        "description": "Get the execution plan for a SQL query without executing it",
+        "operationId": "explainQuery",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExplainRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Execution plan retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplainResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "DatabaseAuth": []
+          }
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "summary": "Database health check",
+        "description": "Check database connectivity and health",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "Database is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "healthy"
+                    },
+                    "connection_pool": {
+                      "type": "object",
+                      "properties": {
+                        "active_connections": {
+                          "type": "integer"
+                        },
+                        "max_connections": {
+                          "type": "integer"
+                        }
+                      }
+                    },
+                    "response_time_ms": {
+                      "type": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "QueryRequest": {
+        "type": "object",
+        "required": ["sql"],
+        "properties": {
+          "sql": {
+            "type": "string",
+            "description": "SQL query to execute",
+            "example": "SELECT * FROM sales_data WHERE date >= '2024-01-01' LIMIT 100"
+          },
+          "parameters": {
+            "type": "array",
+            "description": "Query parameters for prepared statements",
+            "items": {
+              "oneOf": [
+                {"type": "string"},
+                {"type": "number"},
+                {"type": "boolean"}
+              ]
+            }
+          },
+          "timeout": {
+            "type": "integer",
+            "description": "Query timeout in seconds",
+            "default": 30,
+            "maximum": 300
+          },
+          "max_rows": {
+            "type": "integer",
+            "description": "Maximum number of rows to return",
+            "default": 1000,
+            "maximum": 10000
+          }
+        }
+      },
+      "QueryResponse": {
+        "type": "object",
+        "properties": {
+          "query_id": {
+            "type": "string",
+            "description": "Unique identifier for the query execution"
+          },
+          "columns": {
+            "type": "array",
+            "description": "Column information",
+            "items": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "nullable": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "rows": {
+            "type": "array",
+            "description": "Query result rows",
+            "items": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "row_count": {
+            "type": "integer",
+            "description": "Number of rows returned"
+          },
+          "execution_time_ms": {
+            "type": "number",
+            "description": "Query execution time in milliseconds"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["success", "error", "timeout"],
+            "description": "Query execution status"
+          }
+        }
+      },
+      "SchemaResponse": {
+        "type": "object",
+        "properties": {
+          "database_name": {
+            "type": "string",
+            "description": "Name of the database"
+          },
+          "tables": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TableSchema"
+            }
+          }
+        }
+      },
+      "TableSchema": {
+        "type": "object",
+        "properties": {
+          "table_name": {
+            "type": "string",
+            "description": "Name of the table"
+          },
+          "schema_name": {
+            "type": "string",
+            "description": "Schema/namespace name"
+          },
+          "columns": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "column_name": {
+                  "type": "string"
+                },
+                "data_type": {
+                  "type": "string"
+                },
+                "is_nullable": {
+                  "type": "boolean"
+                },
+                "default_value": {
+                  "type": "string"
+                },
+                "is_primary_key": {
+                  "type": "boolean"
+                },
+                "is_foreign_key": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "indexes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "index_name": {
+                  "type": "string"
+                },
+                "columns": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "is_unique": {
+                  "type": "boolean"
+                }
+              }
+            }
+          },
+          "row_count": {
+            "type": "integer",
+            "description": "Approximate number of rows"
+          }
+        }
+      },
+      "TablesResponse": {
+        "type": "object",
+        "properties": {
+          "tables": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "table_name": {
+                  "type": "string"
+                },
+                "schema_name": {
+                  "type": "string"
+                },
+                "table_type": {
+                  "type": "string",
+                  "enum": ["TABLE", "VIEW", "MATERIALIZED_VIEW"]
+                },
+                "row_count": {
+                  "type": "integer"
+                },
+                "size_mb": {
+                  "type": "number"
+                }
+              }
+            }
+          },
+          "total_count": {
+            "type": "integer"
+          }
+        }
+      },
+      "ExplainRequest": {
+        "type": "object",
+        "required": ["sql"],
+        "properties": {
+          "sql": {
+            "type": "string",
+            "description": "SQL query to explain"
+          },
+          "format": {
+            "type": "string",
+            "enum": ["text", "json", "xml"],
+            "default": "text",
+            "description": "Output format for the execution plan"
+          }
+        }
+      },
+      "ExplainResponse": {
+        "type": "object",
+        "properties": {
+          "execution_plan": {
+            "type": "string",
+            "description": "Query execution plan"
+          },
+          "estimated_cost": {
+            "type": "number",
+            "description": "Estimated query cost"
+          },
+          "estimated_rows": {
+            "type": "integer",
+            "description": "Estimated number of rows"
+          },
+          "operations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "operation": {
+                  "type": "string"
+                },
+                "cost": {
+                  "type": "number"
+                },
+                "rows": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "DatabaseAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Database authentication token"
+      }
+    }
+  }
+}

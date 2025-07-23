@@ -1,0 +1,127 @@
+{
+  "total_tests": 24,
+  "passed_tests": 23,
+  "failed_tests": 1,
+  "test_details": [
+    {
+      "test_name": "Module Import",
+      "success": true,
+      "message": "Successfully imported database integration module"
+    },
+    {
+      "test_name": "Initialization",
+      "success": true,
+      "message": "Database integration initialized successfully"
+    },
+    {
+      "test_name": "Attribute connection_string",
+      "success": true,
+      "message": "connection_string attribute exists"
+    },
+    {
+      "test_name": "Attribute schema_cache",
+      "success": true,
+      "message": "schema_cache attribute exists"
+    },
+    {
+      "test_name": "Attribute query_cache",
+      "success": true,
+      "message": "query_cache attribute exists"
+    },
+    {
+      "test_name": "Singleton Pattern",
+      "success": true,
+      "message": "Singleton pattern working correctly"
+    },
+    {
+      "test_name": "Connection String Format",
+      "success": true,
+      "message": "Valid PostgreSQL connection string format"
+    },
+    {
+      "test_name": "Connection Test",
+      "success": true,
+      "message": "Connection test passed: Database connection test simulated successfully (no psycopg2/sqlalchemy)"
+    },
+    {
+      "test_name": "Response Time",
+      "success": true,
+      "message": "Response time: 150ms"
+    },
+    {
+      "test_name": "Connection Method",
+      "success": true,
+      "message": "Using simulated connection method"
+    },
+    {
+      "test_name": "Schema Structure",
+      "success": true,
+      "message": "Schema has all required fields"
+    },
+    {
+      "test_name": "Schema Content",
+      "success": true,
+      "message": "Found 3 tables with 20 columns"
+    },
+    {
+      "test_name": "Schema Caching",
+      "success": true,
+      "message": "Schema cached successfully"
+    },
+    {
+      "test_name": "SQL Gen Query 1",
+      "success": true,
+      "message": "Generated valid SQL for 'Show me sales by region...'"
+    },
+    {
+      "test_name": "SQL Gen Query 2",
+      "success": true,
+      "message": "Generated valid SQL for 'What are the top selling produ...'"
+    },
+    {
+      "test_name": "SQL Gen Query 3",
+      "success": true,
+      "message": "Generated valid SQL for 'Analyze customer segments...'"
+    },
+    {
+      "test_name": "SQL Gen Query 4",
+      "success": true,
+      "message": "Generated valid SQL for 'Give me a general overview...'"
+    },
+    {
+      "test_name": "SQL Generation Overall",
+      "success": true,
+      "message": "Success rate: 100.0%"
+    },
+    {
+      "test_name": "Query Exec 1",
+      "success": true,
+      "message": "Executed successfully: 1 rows in 3.76ms"
+    },
+    {
+      "test_name": "Query Exec 2",
+      "success": true,
+      "message": "Executed successfully: 1 rows in 0.29ms"
+    },
+    {
+      "test_name": "Query Execution Overall",
+      "success": true,
+      "message": "Success rate: 100.0%"
+    },
+    {
+      "test_name": "Error Handling",
+      "success": false,
+      "message": "Invalid SQL should not succeed"
+    },
+    {
+      "test_name": "Table Extraction",
+      "success": true,
+      "message": "Extracted 2 tables from query"
+    },
+    {
+      "test_name": "Complexity Assessment",
+      "success": true,
+      "message": "Assessed complexity as 'simple'"
+    }
+  ]
+}

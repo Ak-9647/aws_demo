@@ -1,0 +1,24 @@
+{
+  "timestamp": "2025-07-22T12:25:50.883239",
+  "success_rate": 0.0,
+  "components": {
+    "memory": {
+      "passed": false
+    },
+    "identity": {
+      "passed": false
+    },
+    "gateway": {
+      "passed": false
+    },
+    "integration": {
+      "passed": false
+    }
+  },
+  "recommendations": [
+    "Set up AgentCore Memory resources in AWS Console",
+    "Configure AgentCore Identity OAuth clients and API keys",
+    "Deploy AgentCore Gateway with secrets and IAM roles",
+    "Fix agent module dependencies and imports"
+  ]
+}

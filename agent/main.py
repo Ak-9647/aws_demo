@@ -19,44 +19,54 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def process_analytics_query(user_input: str) -> str:
+def process_analytics_query(user_input: str, session_id: str = None, user_id: str = None) -> str:
     """
-    Process analytics query and return response
+    Process analytics query using LangGraph workflow with memory
     """
     try:
-        logger.info(f"Processing analytics query: '{user_input}'")
+        logger.info(f"Processing analytics query: '{user_input}' for session: {session_id}")
         
-        # Import analytics engine
-        from analytics_engine import AnalyticsEngine
+        # Import LangGraph workflow
+        from langgraph_workflow import get_workflow
         
-        # Initialize analytics engine
-        engine = AnalyticsEngine()
+        # Get workflow instance
+        workflow = get_workflow()
         
-        # Analyze the query
-        result = engine.analyze_query(user_input)
+        # Process query with context awareness
+        result = workflow.process_query(user_input, session_id, user_id)
         
         if result["success"]:
-            # Format the response
+            # Format the response with LangGraph results
             response_parts = []
             response_parts.append(f"# Analytics Results\n")
-            response_parts.append(result["analysis"])
             
-            # Add data summary if available
-            if result.get("data_summary"):
-                response_parts.append(f"\n## Data Summary")
-                for key, value in result["data_summary"].items():
-                    response_parts.append(f"- {key.replace('_', ' ').title()}: {value}")
+            # Add analysis results
+            analysis_data = result.get("results", {})
+            if analysis_data.get("analysis"):
+                response_parts.append(analysis_data["analysis"])
             
-            # Add recommendations if available
+            # Add context information
+            context = result.get("context", {})
+            if context.get("previous_context") and context["previous_context"] != "No previous conversation context.":
+                response_parts.append(f"\n## Conversation Context")
+                response_parts.append(f"Building on previous conversation: {context['previous_context']}")
+            
+            # Add recommendations from LangGraph
             if result.get("recommendations"):
-                response_parts.append(f"\n## Recommendations")
+                response_parts.append(f"\n## Intelligent Recommendations")
                 for i, rec in enumerate(result["recommendations"], 1):
                     response_parts.append(f"{i}. {rec}")
             
-            # Add visualization info if available
-            if result.get("visualizations"):
+            # Add completed tasks information
+            if result.get("completed_tasks"):
+                response_parts.append(f"\n## Analysis Tasks Completed")
+                for task in result["completed_tasks"]:
+                    response_parts.append(f"✅ {task.replace('_', ' ').title()}")
+            
+            # Add visualization info if available from analytics engine
+            if analysis_data.get("visualizations"):
                 response_parts.append(f"\n## Visualizations Generated")
-                for i, viz in enumerate(result["visualizations"], 1):
+                for i, viz in enumerate(analysis_data["visualizations"], 1):
                     response_parts.append(f"{i}. **{viz.get('title', 'Chart')}**: {viz.get('description', 'Data visualization')}")
                     if viz.get('chart_image'):
                         response_parts.append(f"   📊 Chart image generated successfully")
@@ -95,7 +105,10 @@ class AgentHandler(BaseHTTPRequestHandler):
         query_params = parse_qs(parsed_url.query)
         
         user_input = query_params.get('query', ['Hello World'])[0]
-        response = process_analytics_query(user_input)
+        session_id = query_params.get('session_id', [None])[0]
+        user_id = query_params.get('user_id', [None])[0]
+        
+        response = process_analytics_query(user_input, session_id, user_id)
         
         self.send_response(200)
         self.send_header('Content-type', 'text/plain')
@@ -125,11 +138,15 @@ class AgentHandler(BaseHTTPRequestHandler):
                     str(data.get("body", "")) or
                     "Hello World"
                 )
+                session_id = data.get("session_id")
+                user_id = data.get("user_id")
             except json.JSONDecodeError:
                 # Treat as plain text
                 user_input = post_data.decode('utf-8') or "Hello World"
+                session_id = None
+                user_id = None
             
-            response = process_analytics_query(user_input)
+            response = process_analytics_query(user_input, session_id, user_id)
             
             self.send_response(200)
             self.send_header('Content-type', 'text/plain')
